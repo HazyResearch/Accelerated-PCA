@@ -10,6 +10,8 @@ The main code of the implementation for different PCA algorithms is in the file 
  
  - <code>minibatch_svrg_m(data, x, beta, epoch, m, u,s, seed=1)</code>: This function is the implementation for our algorithm *Variance Reduced Power Method with Momemtum*. The argument `m` is the epoch length and `epoch` is the number of epochs. The rest arguments are the same as <code>minibatch_sgd_m()</code>.
 
+Additionally, we provide a drop-in replacement for <code>[sklearn.decomposition.PCA](http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html)</code> in <code>[Momentum-PCA.ipynb](./Momentum-PCA.ipynb)</code>.
+
 All the experimental results are generated from the Jupyter notebooks:
  
  - <code>[Mini-batches-no-acceleration.ipynb](./Mini-batches-no-acceleration.ipynb)</code>: This notebook shows the example that naively adding momentum in Oja’s algorithm does not obtain acceleration.
