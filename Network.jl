@@ -1,6 +1,7 @@
 include("./Eigensolvers.jl")
 using EigenSolvers
 using PyPlot
+
 srand(0)
 
 function load(filename)
@@ -42,21 +43,42 @@ function load(filename)
       end
   end
 
-  return sparse(I, J, V, nodes, nodes), nodes, edges, I, J
+  if (sparse(I, J, V, nodes, nodes) == transpose(sparse(I, J, V, nodes, nodes)))
+      return sparse(I, J, V, nodes, nodes), nodes, edges, I, J
+  else
+      I2 = vcat(I, J)
+      J2 = vcat(J, I)
+      V2 = vcat(V, V)
+      edges = edges * 2
+      return sparse(I2, J2, V2, nodes, nodes), nodes, edges, I2, J2
+  end
+
 end
 
-# A, nodes, edges, I, J = load("ca-GrQc.txt")
-# A, nodes, edges, I, J = load("ca-CondMat.txt")
-A, nodes, edges, I, J = load("ca-AstroPh.txt")
+if size(ARGS)[1] != 1
+    println("usage: julia Network.jl [filename root]")
+    println("ex: ca-AstroPh")
+    exit(1)
+end
+
+root = ARGS[1]
+A, nodes, edges, I, J = load(string("data/", root, ".txt"))
+
+# Find top two components via power iteration
 x0 = randn(nodes, 2)
 println(mapslices(norm, x0, 1))
 x0, _ = qr(x0)
 println(mapslices(norm, x0, 1))
+f = open(string("data/", root, ".eig"), "w")
 for i = 1:200
     x0 = A * x0
-    println(mapslices(norm, x0, 1))
+    Lambda = mapslices(norm, x0, 1)
+    eigengap = 1 - Lambda[2] / Lambda[1]
+    println(string(eigengap, "\t", Lambda[1], "\t", Lambda[2]))
+    write(f, string(eigengap, "\t", Lambda[1], "\t", Lambda[2], "\n"))
     x0, _ = qr(x0)
 end
+close(f)
 
 x0 = A * x0
 Lambda = mapslices(norm, x0, 1)
@@ -66,7 +88,6 @@ u1 /= norm(u1)
 x0 = randn(nodes)
 epoch = 100
 beta = Lambda[2]^2/4
-eig_gap = Lambda[1] - Lambda[2]
 
 # figure(figsize=(6,5))
 # res_pw = power(A, x0, 0, epoch, u1)
@@ -80,12 +101,12 @@ eig_gap = Lambda[1] - Lambda[2]
 # for s = [40000]
 #     res_sgd = zeros(epoch+1, num_trials)
 #     for i = 1:num_trials
-#         res_sgd[:,i] = minibatch_sgd_m(I, J, x0,  0, epoch, u1, s,i)
+#         res_sgd[:,i] = minibatch_sgd_m_sparse(I, J, x0,  0, epoch, u1, s,i)
 #     end
 #     semilogy(mean(res_sgd,2), label=@sprintf("mini-batch power(s=%d)", s),"b-.",)
 #     res_msgd = zeros(epoch+1, num_trials)
 #     for i = 1:num_trials
-#         res_msgd[:,i] = minibatch_sgd_m(I, J, x0, beta, epoch, u1, s,i)
+#         res_msgd[:,i] = minibatch_sgd_m_sparse(I, J, x0, beta, epoch, u1, s,i)
 #     end
 #     semilogy(mean(res_msgd,2), label=@sprintf("mini-batch power+M(s=%d)", s),"r-.",)
 # end
@@ -94,12 +115,12 @@ eig_gap = Lambda[1] - Lambda[2]
 # for s = [200000]
 #     res_sgd = zeros(epoch+1, num_trials)
 #     for i = 1:num_trials
-#         res_sgd[:,i] = minibatch_sgd_m(I, J, x0, 0,  epoch, u1, s,i)
+#         res_sgd[:,i] = minibatch_sgd_m_sparse(I, J, x0, 0,  epoch, u1, s,i)
 #     end
 #     semilogy(mean(res_sgd ,2), label=@sprintf("mini-batch power(s=%d)", s),"b--",)
 #     res_msgd = zeros(epoch+1, num_trials)
 #     for i = 1:num_trials
-#         res_msgd[:,i] = minibatch_sgd_m(I, J, x0, beta, epoch, u1, s,i)
+#         res_msgd[:,i] = minibatch_sgd_m_sparse(I, J, x0, beta, epoch, u1, s,i)
 #     end
 #     semilogy(mean(res_msgd,2), label=@sprintf("mini-batch power+M(s=%d)", s),"r--",)
 # end
@@ -120,34 +141,35 @@ println(res_mpw)
 semilogy(res_mpw, "r-",label="power+M")
 
 m = 5
-epoch = Int(epoch / m)
+epoch = Int(round(epoch / m))
 num_trials = 1
-for s = [200000]
+# for s = [200000]
+for s = [Int(round(edges / 2))]
     res_sgd = zeros(epoch*m + 1, num_trials)
     res_msgd = zeros(epoch*m + 1, num_trials)
     for i = 1:num_trials
-        res_sgd[:,i] = mini_batch_svrg_m(I, J, x0, 0, epoch,m, u1, s,i)
+        res_sgd[:,i] = mini_batch_svrg_m_sparse(I, J, x0, 0, epoch,m, u1, s,i)
         println(res_sgd)
-        res_msgd[:,i] = mini_batch_svrg_m(I, J, x0, beta, epoch,m, u1, s,i)
+        res_msgd[:,i] = mini_batch_svrg_m_sparse(I, J, x0, beta, epoch,m, u1, s,i)
         println(res_msgd)
     end
     semilogy(mean(res_sgd,2), label=@sprintf("VR-power(s=%d)", s),"b--",)
     semilogy(mean(res_msgd,2), label=@sprintf("VR-power+M(s=%d)", s),"r--",)
 end
 
-# for s = [10000]
-#     res_sgd = zeros(epoch*m + 1, num_trials)
-#     res_msgd = zeros(epoch*m + 1, num_trials)
-#     for i = 1:num_trials
-#         res_sgd[:,i] = mini_batch_svrg_m(I, J, x0,0, epoch,m, u1, s,i)
-#         res_msgd[:,i] = mini_batch_svrg_m(I, J, x0, beta, epoch,m, u1, s,i)
-#     end
-#     semilogy(mean(res_sgd,2), label=@sprintf("VR-power(s=%d)", s),"b-.")
-#     semilogy(mean(res_msgd,2), label=@sprintf("VR-power+M(s=%d)", s),"r-.",)
-# end
+for s = [Int(round(edges / 10))]
+    res_sgd = zeros(epoch*m + 1, num_trials)
+    res_msgd = zeros(epoch*m + 1, num_trials)
+    for i = 1:num_trials
+        res_sgd[:,i] = mini_batch_svrg_m_sparse(I, J, x0,0, epoch,m, u1, s,i)
+        res_msgd[:,i] = mini_batch_svrg_m_sparse(I, J, x0, beta, epoch,m, u1, s,i)
+    end
+    semilogy(mean(res_sgd,2), label=@sprintf("VR-power(s=%d)", s),"b-.")
+    semilogy(mean(res_msgd,2), label=@sprintf("VR-power+M(s=%d)", s),"r-.",)
+end
 legend(loc="best",framealpha=0.7)
-xlabel("# Iterations (K=20, T=10)", fontsize=20)
+xlabel(@sprintf("# Iterations (K=%d, T=%d)", epoch, m), fontsize=20)
 ylabel(L"$1 - (\tilde w_t^Tu_1)^2$", fontsize=20)
 ylim([1e-15,1])
 grid("on")
-savefig("vr_power.pdf", bbox_inches="tight")
+savefig(string(root, "_vr_power.pdf"), bbox_inches="tight")

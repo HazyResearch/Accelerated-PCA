@@ -72,8 +72,8 @@ module EigenSolvers
 	    return res;
 	end
 
-    export minibatch_sgd_m
-	function minibatch_sgd_m(I, J, x,  beta, iters, u1, s=1,seed = 1)
+    export minibatch_sgd_m_sparse
+	function minibatch_sgd_m_sparse(I, J, x,  beta, iters, u1, s=1,seed = 1)
 	    srand(seed)
 	    n, = size(I)
             d, = size(x)
@@ -168,8 +168,8 @@ module EigenSolvers
 	    return res;
 	end
 
-    export mini_batch_svrg_m
-	function mini_batch_svrg_m(I, J, x,  beta, epoch, m, u1, s=1,seed = 1)
+    export mini_batch_svrg_m_sparse
+	function mini_batch_svrg_m_sparse(I, J, x,  beta, epoch, m, u1, s=1,seed = 1)
 	    srand(seed)
 	    n, = size(I)
             d, = size(x)
